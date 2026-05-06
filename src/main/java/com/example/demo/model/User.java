@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder // Enables the User.builder() method used in AuthService
+@Builder
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,16 +19,10 @@ public class User {
     private String email;
 
     private String password;
-
-    // --- REQUIRED FIELDS FOR OTP & VERIFICATION ---
+    private String otp;
+    private LocalDateTime otpExpiry;
     
-    // Fixes "cannot find symbol: method getOtp() / setOtp()"
-    private String otp; 
-
-    // Fixes "cannot find symbol: method getOtpExpiry() / setOtpExpiry()"
-    private LocalDateTime otpExpiry; 
-
-    // Fixes "cannot find symbol: method isVerified() / setVerified()"
+    // Lombok creates .verified(boolean) for the builder
+    // and .isVerified() for the getter automatically.
     private boolean verified; 
-
 }
