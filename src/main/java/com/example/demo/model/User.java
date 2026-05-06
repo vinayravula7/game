@@ -1,14 +1,9 @@
 package com.example.demo.model;
 
-import lombok.*;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class User {
 
     @Id
@@ -26,4 +21,66 @@ public class User {
     private LocalDateTime otpExpiry;
 
     private boolean verified = false;
+
+    public User() {
+    }
+
+    public User(Long id, String email, String password,
+                String otp, LocalDateTime otpExpiry,
+                boolean verified) {
+        this.id = id;
+        this.email = email;
+        this.password = password;
+        this.otp = otp;
+        this.otpExpiry = otpExpiry;
+        this.verified = verified;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getOtp() {
+        return otp;
+    }
+
+    public void setOtp(String otp) {
+        this.otp = otp;
+    }
+
+    public LocalDateTime getOtpExpiry() {
+        return otpExpiry;
+    }
+
+    public void setOtpExpiry(LocalDateTime otpExpiry) {
+        this.otpExpiry = otpExpiry;
+    }
+
+    public boolean isVerified() {
+        return verified;
+    }
+
+    public void setVerified(boolean verified) {
+        this.verified = verified;
+    }
 }
