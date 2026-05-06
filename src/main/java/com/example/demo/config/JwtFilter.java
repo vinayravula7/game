@@ -1,75 +1,44 @@
 package com.example.demo.config;
 
+import com.example.demo.service.JwtUtil;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
 
-@Configuration
-@EnableWebSecurity
+import java.io.IOException;
+import java.util.ArrayList;
+
+@Component
 @RequiredArgsConstructor
-public class SecurityConfig {
+public class JwtFilter extends OncePerRequestFilter {
 
-    private final JwtFilter jwtFilter;
+    private final JwtUtil jwtUtil;
 
-    @Bean
-    public BCryptPasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        String authHeader = request.getHeader("Authorization");
 
-        http
-            .csrf(AbstractHttpConfigurer::disable)
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            String email = jwtUtil.extractEmail(token);
 
-            .cors(cors -> cors.configurationSource(request -> {
-
-                var opt = new org.springframework.web.cors.CorsConfiguration();
-
-                opt.setAllowedOrigins(java.util.List.of(
-                        "http://localhost:3000",
-                        "https://vinayin.netlify.app",
-                        "https://vinaygame.netlify.app"
-                ));
-
-                opt.setAllowedMethods(java.util.List.of(
-                        "GET",
-                        "POST",
-                        "PUT",
-                        "DELETE",
-                        "OPTIONS"
-                ));
-
-                opt.setAllowedHeaders(java.util.List.of("*"));
-
-                opt.setAllowCredentials(true);
-
-                return opt;
-            }))
-
-            .authorizeHttpRequests(auth -> auth
-
-                    .requestMatchers(
-                            "/",
-                            "/auth/**"
-                    ).permitAll()
-
-                    .requestMatchers("/api/game/**").authenticated()
-
-                    .anyRequest().authenticated()
-            )
-
-            .addFilterBefore(
-                    jwtFilter,
-                    UsernamePasswordAuthenticationFilter.class
-            );
-
-        return http.build();
+            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                if (jwtUtil.validateToken(token, email)) {
+                    UsernamePasswordAuthenticationToken authToken = 
+                        new UsernamePasswordAuthenticationToken(email, null, new ArrayList<>());
+                    
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            }
+        }
+        filterChain.doFilter(request, response);
     }
 }
