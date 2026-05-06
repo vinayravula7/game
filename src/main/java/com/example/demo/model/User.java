@@ -20,6 +20,7 @@ public class User {
 
     private String password;
     private String otp;
+    @Column(columnDefinition = "DATETIME")
     private LocalDateTime otpExpiry;
     
     // Lombok creates .verified(boolean) for the builder
