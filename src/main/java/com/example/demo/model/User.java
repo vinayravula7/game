@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -18,9 +19,11 @@ public class User {
     private String email;
 
     private String password;
+
     private String otp;
-   
+
     @Column(name = "otp_expiry", columnDefinition = "DATETIME")
     private LocalDateTime otpExpiry;
-    private boolean isVerified = false;
+
+    private boolean verified = false;
 }
