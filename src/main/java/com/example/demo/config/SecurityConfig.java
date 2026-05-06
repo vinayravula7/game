@@ -1,5 +1,5 @@
 package com.example.demo.config;
- 
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,7 +9,8 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import jakarta.servlet.Filter; // Add this import
+import jakarta.servlet.Filter;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -25,24 +26,25 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.csrf(AbstractHttpConfigurer::disable)
+        http
+            .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(request -> {
                 var opt = new org.springframework.web.cors.CorsConfiguration();
-                opt.setAllowedOrigins(java.util.List.of(
-                	    "http://localhost:3000", 
-                	    "https://vinayin.netlify.app",
-                	    "https://vinaygame.netlify.app"
-                	));
-                opt.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-                opt.setAllowedHeaders(java.util.List.of("*"));
+                opt.setAllowedOrigins(List.of(
+                        "http://localhost:3000", 
+                        "https://vinayin.netlify.app",
+                        "https://vinaygame.netlify.app"
+                ));
+                opt.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                opt.setAllowedHeaders(List.of("*"));
+                opt.setAllowCredentials(true);
                 return opt;
             }))
             .authorizeHttpRequests(auth -> auth
-            	    .requestMatchers("/", "/auth/**").permitAll() // Added "/" for the Render live link
-            	    .requestMatchers("/api/game/**").authenticated()
-            	    .anyRequest().authenticated()
-            	)
-            // Fix: Explicitly cast if the compiler is being stubborn
+                .requestMatchers("/", "/auth/**").permitAll() 
+                .requestMatchers("/api/game/**").authenticated() 
+                .anyRequest().authenticated()
+            )
             .addFilterBefore((Filter) jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
