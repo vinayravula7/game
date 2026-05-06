@@ -19,37 +19,31 @@ public class AuthService {
 	private final EmailService emailService;
 	private final JwtUtil jwtUtil;
 
-	public String signup(String email, String password) {
-		Optional<User> existingUser = userRepository.findByEmail(email);
+public String signup(String email, String password) {
+    // 1. Check if user already exists
+    if (userRepository.findByEmail(email).isPresent()) {
+        return "User already exists";
+    }
 
-		String otp = String.format("%06d", new Random().nextInt(999999));
-		User user;
+    // 2. Generate OTP
+    String otp = String.format("%06d", new java.util.Random().nextInt(999999));
 
-		if (existingUser.isPresent()) {
-			user = existingUser.get();
-			// 1. Check if user already exists and is verified
-			if (user.isVerified()) {
-				return "User already exists with this email id. Please login.";
-			}
-			// Update the existing unverified user with a new OTP and password
-			user.setOtp(otp);
-			user.setPassword(passwordEncoder.encode(password));
-			user.setOtpExpiry(LocalDateTime.now().plusMinutes(5));
-		} else {
-			// 2. Create a brand new user
-		User user = User.builder()
-    .email(request.getEmail())
-    .password(passwordEncoder.encode(request.getPassword()))
-    .otp(otp)
-    .otpExpiry(LocalDateTime.now().plusMinutes(5))
-    .verified(false) // Use 'verified' NOT 'isVerified'
-    .build();
-		}
+    // 3. Build the User object (Fixed the 'request' and 'isVerified' errors)
+    User newUser = User.builder()
+            .email(email) // Using 'email' parameter instead of 'request.getEmail()'
+            .password(passwordEncoder.encode(password)) // Using 'password' parameter
+            .otp(otp)
+            .otpExpiry(java.time.LocalDateTime.now().plusMinutes(5))
+            .verified(false) // Using 'verified' instead of 'isVerified'
+            .build();
 
-		userRepository.save(user);
-		emailService.sendOtpEmail(email, otp);
-		return "OTP sent successfully to " + email;
-	}
+    userRepository.save(newUser);
+    
+    // 4. Send Email (Optional, based on your logic)
+    emailService.sendOtpEmail(email, otp);
+
+    return "OTP sent to your email. Please verify.";
+}
 
 	public String verifyOtp(String email, String otp) {
 		Optional<User> userOpt = userRepository.findByEmail(email);
