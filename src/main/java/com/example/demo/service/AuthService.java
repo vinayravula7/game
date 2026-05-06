@@ -37,13 +37,13 @@ public class AuthService {
 			user.setOtpExpiry(LocalDateTime.now().plusMinutes(5));
 		} else {
 			// 2. Create a brand new user
-			user = User.builder()
-					.email(email)
-					.password(passwordEncoder.encode(password))
-					.otp(otp)
-					.otpExpiry(LocalDateTime.now().plusMinutes(5))
-					.isVerified(false)
-					.build();
+		User user = User.builder()
+    .email(request.getEmail())
+    .password(passwordEncoder.encode(request.getPassword()))
+    .otp(otp)
+    .otpExpiry(LocalDateTime.now().plusMinutes(5))
+    .verified(false) // Use 'verified' NOT 'isVerified'
+    .build();
 		}
 
 		userRepository.save(user);
