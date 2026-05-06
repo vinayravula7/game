@@ -33,15 +33,15 @@ public class SecurityConfig {
                 	    "https://vinayin.netlify.app",
                 	    "https://vinaygame.netlify.app"
                 	));
-                opt.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE"));
+                opt.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                 opt.setAllowedHeaders(java.util.List.of("*"));
                 return opt;
             }))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/**").permitAll() 
-                .requestMatchers("/api/game/**").authenticated() 
-                .anyRequest().authenticated()
-            )
+            	    .requestMatchers("/", "/auth/**").permitAll() // Added "/" for the Render live link
+            	    .requestMatchers("/api/game/**").authenticated()
+            	    .anyRequest().authenticated()
+            	)
             // Fix: Explicitly cast if the compiler is being stubborn
             .addFilterBefore((Filter) jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
