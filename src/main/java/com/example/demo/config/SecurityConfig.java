@@ -40,11 +40,11 @@ public class SecurityConfig {
                 opt.setAllowCredentials(true);
                 return opt;
             }))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/auth/**").permitAll() 
-                .requestMatchers("/api/game/**").authenticated() 
-                .anyRequest().authenticated()
-            )
+.authorizeHttpRequests(auth -> auth
+    .requestMatchers("/", "/auth/**").permitAll() // --- ADD "/" HERE ---
+    .requestMatchers("/api/game/**").authenticated() 
+    .anyRequest().authenticated()
+)
             .addFilterBefore((Filter) jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
