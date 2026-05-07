@@ -1,46 +1,54 @@
 package com.example.demo.service;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // Step 1: Import Slf4j
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import com.sendgrid.Method;
+import com.sendgrid.Request;
+import com.sendgrid.Response;
+import com.sendgrid.SendGrid;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Content;
+import com.sendgrid.helpers.mail.objects.Email;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+
 @Service
-@RequiredArgsConstructor
-@Slf4j // Step 2: Add annotation
+@Slf4j
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    @Value("${sendgrid.api.key}")
+    private String sendGridApiKey;
+
+    @Value("${spring.mail.username}")
+    private String fromEmail;
 
     public void sendOtpEmail(String to, String otp) {
-        log.info("Preparing to send OTP email to: {}", to);
-        
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            // Use MimeMessageHelper for HTML support
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+        log.info("Sending OTP via SendGrid API to: {}", to);
 
-            helper.setTo(to);
-            helper.setSubject("Your Secure Verification Code");
+        Email from = new Email(fromEmail);
+        String subject = "Your Secure Verification Code";
+        Email recipient = new Email(to);
+        Content content = new Content("text/html", createEmailTemplate(otp));
+        Mail mail = new Mail(from, subject, recipient, content);
+
+        SendGrid sg = new SendGrid(sendGridApiKey);
+        Request request = new Request();
+
+        try {
+            request.setMethod(Method.POST);
+            request.setEndpoint("mail/send");
+            request.setBody(mail.build());
+            Response response = sg.api(request);
             
-            log.debug("Generating HTML content for OTP: {}", otp);
-            String htmlContent = createEmailTemplate(otp);
-            helper.setText(htmlContent, true); 
-            
-            log.info("Attempting to connect to SMTP server to send email...");
-            mailSender.send(message);
-            log.info("Email successfully dispatched to {}", to);
-            
-        } catch (MessagingException e) {
-            log.error("CRITICAL ERROR: MessagingException occurred while sending email to {}. Reason: {}", to, e.getMessage());
-            throw new RuntimeException("Error sending stylish email", e);
-        } catch (Exception e) {
-            log.error("UNEXPECTED ERROR: An exception occurred in EmailService for {}. Class: {}, Message: {}", 
-                      to, e.getClass().getName(), e.getMessage());
-            throw e;
+            log.info("SendGrid Response Status: {}", response.getStatusCode());
+            if (response.getStatusCode() >= 400) {
+                log.error("SendGrid Error: {}", response.getBody());
+                throw new RuntimeException("API Error: " + response.getBody());
+            }
+        } catch (IOException ex) {
+            log.error("Failed to call SendGrid API: {}", ex.getMessage());
+            throw new RuntimeException(ex);
         }
     }
 
