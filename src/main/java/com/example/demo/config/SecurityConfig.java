@@ -30,7 +30,7 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(request -> {
                 var opt = new org.springframework.web.cors.CorsConfiguration();
-                opt.setAllowedOrigins(List.of("http://localhost:3000", "https://vinayin.netlify.app", "https://vinaygame.netlify.app"));
+                opt.setAllowedOrigins(List.of("http://localhost:3000", "https://vinayravula.online", "https://vinaygame.netlify.app"));
                 opt.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                 opt.setAllowedHeaders(List.of("*"));
                 opt.setAllowCredentials(true);
