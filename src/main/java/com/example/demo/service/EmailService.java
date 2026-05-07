@@ -17,17 +17,17 @@ import java.io.IOException;
 @Slf4j
 public class EmailService {
 
-    @Value("${sendgrid.api.key}")
+    @Value("${SENDGRID_API_KEY}")
     private String sendGridApiKey;
 
-    @Value("${spring.mail.username}")
+    @Value("${MAIL_SENDER}")
     private String fromEmail;
 
     public void sendOtpEmail(String to, String otp) {
-        log.info("Sending OTP via SendGrid API to: {}", to);
+        log.info("Preparing to send OTP to: {} from: {}", to, fromEmail);
 
         Email from = new Email(fromEmail);
-        String subject = "Your Secure Verification Code";
+        String subject = "GoGrab - Your Secure Verification Code";
         Email recipient = new Email(to);
         Content content = new Content("text/html", createEmailTemplate(otp));
         Mail mail = new Mail(from, subject, recipient, content);
@@ -39,36 +39,44 @@ public class EmailService {
             request.setMethod(Method.POST);
             request.setEndpoint("mail/send");
             request.setBody(mail.build());
+            
             Response response = sg.api(request);
             
             log.info("SendGrid Response Status: {}", response.getStatusCode());
+            
             if (response.getStatusCode() >= 400) {
-                log.error("SendGrid Error: {}", response.getBody());
-                throw new RuntimeException("API Error: " + response.getBody());
+                log.error("SendGrid API Error Details: {}", response.getBody());
+                throw new RuntimeException("SendGrid Error: " + response.getBody());
+            } else {
+                log.info("OTP successfully sent to {}", to);
             }
+            
         } catch (IOException ex) {
-            log.error("Failed to call SendGrid API: {}", ex.getMessage());
-            throw new RuntimeException(ex);
+            log.error("Network error while calling SendGrid: {}", ex.getMessage());
+            throw new RuntimeException("Email delivery failed due to network error", ex);
         }
     }
 
     private String createEmailTemplate(String otp) {
-        log.trace("Building StringBuilder for email template box.");
         StringBuilder sb = new StringBuilder();
-        sb.append("<div style=\"font-family: Arial, sans-serif; max-width: 450px; margin: 20px auto; padding: 25px; border: 1px solid #ddd; border-radius: 12px; background-color: #ffffff;\">");
-        sb.append("<h2 style=\"color: #333; text-align: center; margin-bottom: 20px;\">Account Verification</h2>");
-        sb.append("<p style=\"color: #555; font-size: 15px; line-height: 1.5; text-align: center;\">Hello, thank you for joining! Please use the verification code below to activate your account. This code is active for 5 minutes.</p>");
+        sb.append("<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 450px; margin: 20px auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 15px; background-color: #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.05);\">");
+        sb.append("<div style=\"text-align: center; margin-bottom: 25px;\">");
+        sb.append("<h2 style=\"color: #1a73e8; margin: 0; font-size: 24px;\">GoGrab Verification</h2>");
+        sb.append("</div>");
+        
+        sb.append("<p style=\"color: #555; font-size: 16px; line-height: 1.6; text-align: center;\">Hello! Thank you for choosing GoGrab. Use the verification code below to complete your registration.</p>");
         
         // Stylish OTP Box
-        sb.append("<div style=\"background-color: #f4f7f6; padding: 20px; text-align: center; border-radius: 10px; margin: 25px 0;\">");
-        sb.append("<span style=\"font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #1a73e8;\">").append(otp).append("</span>");
+        sb.append("<div style=\"background-color: #f8f9fa; padding: 25px; text-align: center; border-radius: 12px; margin: 30px 0; border: 1px dashed #1a73e8;\">");
+        sb.append("<span style=\"font-size: 40px; font-weight: bold; letter-spacing: 10px; color: #1a73e8;\">").append(otp).append("</span>");
+        sb.append("<p style=\"color: #999; font-size: 12px; margin-top: 15px;\">Valid for 5 minutes only</p>");
         sb.append("</div>");
 
         // Footer / Signature
-        sb.append("<div style=\"border-top: 1px solid #eee; padding-top: 20px; text-align: center;\">");
+        sb.append("<div style=\"border-top: 1px solid #eeeeee; padding-top: 25px; text-align: center;\">");
         sb.append("<p style=\"color: #888; font-size: 14px; margin: 0;\">Best regards,</p>");
-        sb.append("<p style=\"color: #1a73e8; font-size: 16px; font-weight: bold; margin: 5px 0 0 0;\">Vinay Ravula</p>");
-        sb.append("<p style=\"color: #999; font-size: 11px; margin-top: 20px;\">This is an automated message. Please do not reply.</p>");
+        sb.append("<p style=\"color: #1a73e8; font-size: 18px; font-weight: bold; margin: 5px 0 0 0;\">Vinay Ravula</p>");
+        sb.append("<p style=\"color: #bbb; font-size: 11px; margin-top: 25px;\">This is an automated system message. Please do not reply to this email.</p>");
         sb.append("</div>");
         sb.append("</div>");
         
