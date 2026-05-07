@@ -9,7 +9,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import jakarta.servlet.Filter;
+
 import java.util.List;
 
 @Configuration
@@ -30,22 +30,18 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(request -> {
                 var opt = new org.springframework.web.cors.CorsConfiguration();
-                opt.setAllowedOrigins(List.of(
-                        "http://localhost:3000", 
-                        "https://vinayin.netlify.app",
-                        "https://vinaygame.netlify.app"
-                ));
+                opt.setAllowedOrigins(List.of("http://localhost:3000", "https://vinayin.netlify.app", "https://vinaygame.netlify.app"));
                 opt.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                 opt.setAllowedHeaders(List.of("*"));
                 opt.setAllowCredentials(true);
                 return opt;
             }))
-.authorizeHttpRequests(auth -> auth
-    .requestMatchers("/", "/auth/**").permitAll() // --- ADD "/" HERE ---
-    .requestMatchers("/api/game/**").authenticated() 
-    .anyRequest().authenticated()
-)
-            .addFilterBefore((Filter) jwtFilter, UsernamePasswordAuthenticationFilter.class);
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/auth/**").permitAll() 
+                .requestMatchers("/api/game/**").authenticated()
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
