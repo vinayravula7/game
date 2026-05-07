@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j; // Step 1: Add SLF4J
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -13,129 +14,163 @@ import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j // Step 2: Annotate for easy logging
 public class AuthService {
-	private final UserRepository userRepository;
-	private final PasswordEncoder passwordEncoder;
-	private final EmailService emailService;
-	private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
+    private final JwtUtil jwtUtil;
 
-public String signup(String email, String password) {
-    // 1. Check if user already exists
-    if (userRepository.findByEmail(email).isPresent()) {
-        return "User already exists";
+    public String signup(String email, String password) {
+        log.info("Signup request received for email: {}", email);
+        
+        // 1. Check if user already exists
+        if (userRepository.findByEmail(email).isPresent()) {
+            log.warn("Signup failed: User {} already exists", email);
+            return "User already exists";
+        }
+
+        // 2. Generate OTP
+        String otp = String.format("%06d", new Random().nextInt(999999));
+
+        // 3. Build the User object
+        User newUser = User.builder()
+                .email(email)
+                .password(passwordEncoder.encode(password))
+                .otp(otp)
+                .otpExpiry(LocalDateTime.now().plusMinutes(5))
+                .verified(false)
+                .build();
+
+        userRepository.save(newUser);
+        log.info("User record created for {}. Attempting to send OTP email.", email);
+        
+        // 4. Send Email with Error Catching
+        try {
+            emailService.sendOtpEmail(email, otp);
+            log.info("OTP email successfully sent to {}", email);
+        } catch (Exception e) {
+            log.error("ERROR: Failed to send OTP to {}. Message: {}", email, e.getMessage());
+            // We return success for the DB save, but warn about the email
+            return "Registration successful, but OTP email failed to send. Please try Forgot Password.";
+        }
+
+        return "OTP sent to your email. Please verify.";
     }
 
-    // 2. Generate OTP
-    String otp = String.format("%06d", new java.util.Random().nextInt(999999));
+    public String verifyOtp(String email, String otp) {
+        log.info("Verifying OTP for user: {}", email);
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        
+        if (userOpt.isEmpty()) {
+            log.error("Verification failed: User {} not found in database", email);
+            return "User not found.";
+        }
 
-    // 3. Build the User object (Fixed the 'request' and 'isVerified' errors)
-    User newUser = User.builder()
-            .email(email) // Using 'email' parameter instead of 'request.getEmail()'
-            .password(passwordEncoder.encode(password)) // Using 'password' parameter
-            .otp(otp)
-            .otpExpiry(java.time.LocalDateTime.now().plusMinutes(5))
-            .verified(false) // Using 'verified' instead of 'isVerified'
-            .build();
+        User user = userOpt.get();
+        if (user.getOtp() != null && user.getOtp().equals(otp) && 
+                user.getOtpExpiry().isAfter(LocalDateTime.now())) {
 
-    userRepository.save(newUser);
-    
-    // 4. Send Email (Optional, based on your logic)
-    emailService.sendOtpEmail(email, otp);
+            user.setVerified(true);
+            user.setOtp(null); 
+            userRepository.save(user);
+            log.info("User {} verified successfully.", email);
+            return "Account verified successfully.";
+        }
+        
+        log.warn("Invalid or expired OTP attempt for user: {}", email);
+        return "Invalid or expired OTP.";
+    }
 
-    return "OTP sent to your email. Please verify.";
-}
+    public String login(String email, String password) {
+        log.info("Login attempt for email: {}", email);
+        Optional<User> userOpt = userRepository.findByEmail(email);
 
-	public String verifyOtp(String email, String otp) {
-		Optional<User> userOpt = userRepository.findByEmail(email);
-		if (userOpt.isEmpty()) {
-			return "User not found.";
-		}
+        if (userOpt.isEmpty()) {
+            log.warn("Login failed: Email {} not found", email);
+            return "Username not found. Please check your email.";
+        }
 
-		User user = userOpt.get();
-		if (user.getOtp() != null && user.getOtp().equals(otp) && 
-				user.getOtpExpiry().isAfter(LocalDateTime.now())) {
+        User user = userOpt.get();
 
-			user.setVerified(true);
-			user.setOtp(null); // Clear OTP after success
-			userRepository.save(user);
-			return "Account verified successfully.";
-		}
-		return "Invalid or expired OTP.";
-	}
+        if (!user.isVerified()) {
+            log.warn("Login failed: User {} has not verified their account", email);
+            return "Account not verified. Please verify your OTP first.";
+        }
 
-	public String login(String email, String password) {
-		Optional<User> userOpt = userRepository.findByEmail(email);
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            log.warn("Login failed: Incorrect password for {}", email);
+            return "Password wrong. Please try again.";
+        }
 
-		// 1. Check if username exists
-		if (userOpt.isEmpty()) {
-			return "Username not found. Please check your email.";
-		}
+        log.info("Login successful for {}. Generating JWT.", email);
+        return jwtUtil.generateToken(email);
+    }
 
-		User user = userOpt.get();
+    public String forgotPassword(String email) {
+        log.info("Forgot password request for: {}", email);
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        
+        if (userOpt.isEmpty()) {
+            log.warn("Forgot password failed: {} does not exist", email);
+            return "User not found with this email.";
+        }
 
-		// 2. Check if account is verified
-		if (!user.isVerified()) {
-			return "Account not verified. Please verify your OTP first.";
-		}
+        User user = userOpt.get();
+        String otp = String.format("%06d", new Random().nextInt(999999));
 
-		// 3. Check if password is correct
-		if (!passwordEncoder.matches(password, user.getPassword())) {
-			return "Password wrong. Please try again.";
-		}
+        user.setOtp(otp);
+        user.setOtpExpiry(LocalDateTime.now().plusMinutes(5));
+        userRepository.save(user);
 
-		// Success - return JWT token
-		return jwtUtil.generateToken(email);
-	}
+        try {
+            emailService.sendOtpEmail(email, otp);
+            log.info("Reset OTP sent to {}", email);
+        } catch (Exception e) {
+            log.error("Failed to send Reset OTP to {}: {}", email, e.getMessage());
+            return "Error sending email. Please try again later.";
+        }
+        
+        return "OTP sent successfully to " + email;
+    }
 
-	// 1. Request OTP for password reset
-	public String forgotPassword(String email) {
-		Optional<User> userOpt = userRepository.findByEmail(email);
-		if (userOpt.isEmpty()) {
-			return "User not found with this email.";
-		}
+    public String verifyResetOtp(String email, String otp) {
+        log.info("Verifying reset OTP for: {}", email);
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        
+        if (userOpt.isEmpty()) return "User not found.";
 
-		User user = userOpt.get();
-		String otp = String.format("%06d", new Random().nextInt(999999));
+        User user = userOpt.get();
+        if (user.getOtp() != null && user.getOtp().equals(otp) && 
+                user.getOtpExpiry().isAfter(LocalDateTime.now())) {
+            log.info("Reset OTP verified for {}", email);
+            return "OTP verified. You can now reset your password.";
+        }
+        
+        log.warn("Reset OTP verification failed for {}", email);
+        return "Invalid or expired OTP.";
+    }
 
-		user.setOtp(otp);
-		user.setOtpExpiry(LocalDateTime.now().plusMinutes(5));
-		userRepository.save(user);
+    public String resetPassword(String email, String otp, String newPassword) {
+        log.info("Resetting password for: {}", email);
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        
+        if (userOpt.isEmpty()) return "User not found.";
 
-		emailService.sendOtpEmail(email, otp);
-		return "OTP sent successfully to " + email;
-	}
+        User user = userOpt.get();
 
-	// 2. Verify OTP for password reset (returns a status)
-	public String verifyResetOtp(String email, String otp) {
-		Optional<User> userOpt = userRepository.findByEmail(email);
-		if (userOpt.isEmpty()) return "User not found.";
+        if (user.getOtp() != null && user.getOtp().equals(otp) && 
+                user.getOtpExpiry().isAfter(LocalDateTime.now())) {
 
-		User user = userOpt.get();
-		if (user.getOtp() != null && user.getOtp().equals(otp) && 
-				user.getOtpExpiry().isAfter(LocalDateTime.now())) {
-			return "OTP verified. You can now reset your password.";
-		}
-		return "Invalid or expired OTP.";
-	}
-
-	// 3. Set the new password
-	public String resetPassword(String email, String otp, String newPassword) {
-		Optional<User> userOpt = userRepository.findByEmail(email);
-		if (userOpt.isEmpty()) return "User not found.";
-
-		User user = userOpt.get();
-
-		// Final security check: Ensure OTP is still valid before changing password
-		if (user.getOtp() != null && user.getOtp().equals(otp) && 
-				user.getOtpExpiry().isAfter(LocalDateTime.now())) {
-
-			user.setPassword(passwordEncoder.encode(newPassword));
-			user.setOtp(null); // Clear OTP so it can't be used again
-			user.setVerified(true);
-			userRepository.save(user);
-			return "Password reset successfully.";
-		}
-		return "Invalid OTP or Session expired.";
-	}
-
+            user.setPassword(passwordEncoder.encode(newPassword));
+            user.setOtp(null); 
+            user.setVerified(true);
+            userRepository.save(user);
+            log.info("Password successfully reset for {}", email);
+            return "Password reset successfully.";
+        }
+        
+        log.error("Final password reset check failed for {}. OTP invalid or expired.", email);
+        return "Invalid OTP or Session expired.";
+    }
 }
