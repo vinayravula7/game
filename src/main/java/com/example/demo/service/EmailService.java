@@ -3,17 +3,21 @@ package com.example.demo.service;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j; // Step 1: Import Slf4j
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j // Step 2: Add annotation
 public class EmailService {
 
     private final JavaMailSender mailSender;
 
     public void sendOtpEmail(String to, String otp) {
+        log.info("Preparing to send OTP email to: {}", to);
+        
         try {
             MimeMessage message = mailSender.createMimeMessage();
             // Use MimeMessageHelper for HTML support
@@ -22,16 +26,26 @@ public class EmailService {
             helper.setTo(to);
             helper.setSubject("Your Secure Verification Code");
             
+            log.debug("Generating HTML content for OTP: {}", otp);
             String htmlContent = createEmailTemplate(otp);
             helper.setText(htmlContent, true); 
             
+            log.info("Attempting to connect to SMTP server to send email...");
             mailSender.send(message);
+            log.info("Email successfully dispatched to {}", to);
+            
         } catch (MessagingException e) {
+            log.error("CRITICAL ERROR: MessagingException occurred while sending email to {}. Reason: {}", to, e.getMessage());
             throw new RuntimeException("Error sending stylish email", e);
+        } catch (Exception e) {
+            log.error("UNEXPECTED ERROR: An exception occurred in EmailService for {}. Class: {}, Message: {}", 
+                      to, e.getClass().getName(), e.getMessage());
+            throw e;
         }
     }
 
     private String createEmailTemplate(String otp) {
+        log.trace("Building StringBuilder for email template box.");
         StringBuilder sb = new StringBuilder();
         sb.append("<div style=\"font-family: Arial, sans-serif; max-width: 450px; margin: 20px auto; padding: 25px; border: 1px solid #ddd; border-radius: 12px; background-color: #ffffff;\">");
         sb.append("<h2 style=\"color: #333; text-align: center; margin-bottom: 20px;\">Account Verification</h2>");
